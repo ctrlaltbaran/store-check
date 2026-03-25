@@ -1,5 +1,3 @@
-# shift-tracker
-Shift Tracker Web App
 # ShiftTrack
 
 A mobile-friendly web app for tracking time spent across work locations during a shift. Built as a single HTML file — no installation, no backend, no accounts required.
