@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShiftTrack</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+  :root {
+    --bg: #0d0f14; --surface: #151820; --surface2: #1c2030; --border: #252a3a;
+    --accent: #00e5a0; --accent2: #0099ff; --danger: #ff4d6a; --warn: #ffb347;
+    --text: #e8ecf5; --muted: #6b7494;
+    --font-display: 'Syne', sans-serif; --font-mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-display); min-height: 100vh; overflow-x: hidden; }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .shift-status { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
+  .dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { flex: 1; padding: 12px 4px; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; padding: 20px; animation: fadeIn 0.2s ease; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; font-family: var(--font-display); font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-accent2 { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
+  .btn-accent2:hover { background: var(--accent2); color: #fff; }
+  .btn-warn { background: transparent; color: var(--warn); border: 1px solid var(--warn); }
+  .btn-warn:hover { background: var(--warn); color: #000; }
+  .btn-sm { padding: 6px 12px; font-size: 11px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+  .btn-full { width: 100%; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 11px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: block; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: var(--font-mono); font-size: 13px; transition: border-color 0.15s; outline: none; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: var(--font-mono); font-size: 13px; outline: none; transition: border-color 0.15s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7494' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+  .form-select:focus { border-color: var(--accent); }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+
+  .visit-entry { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .visit-entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .visit-entry-num { font-size: 11px; font-family: var(--font-mono); color: var(--muted); }
+  .visit-remove { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+  .visit-remove:hover { background: rgba(255,77,106,0.1); }
+
+  .loc-list-item { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: border-color 0.15s; position: relative; overflow: hidden; }
+  .loc-list-item.here { border-color: var(--accent); background: rgba(0,229,160,0.06); }
+  .loc-list-item.here::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .loc-list-item.overdue::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--danger); }
+  .loc-list-left { flex: 1; min-width: 0; }
+  .loc-list-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+  .loc-list-sub { font-size: 11px; font-family: var(--font-mono); color: var(--muted); }
+  .loc-list-sub.here-now { color: var(--accent); font-weight: 500; }
+  .loc-list-sub.recent { color: var(--accent); }
+  .loc-list-sub.medium { color: var(--warn); }
+  .loc-list-sub.overdue { color: var(--danger); }
+  .loc-list-right { text-align: right; flex-shrink: 0; margin-left: 12px; }
+  .loc-list-reg { font-size: 10px; font-family: var(--font-mono); color: var(--muted); }
+  .loc-list-reg.registered { color: var(--accent); }
+
+  .location-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 20px; position: relative; overflow: hidden; }
+  .location-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .loc-label { font-size: 11px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .loc-name { font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+  .loc-timer { font-family: var(--font-mono); font-size: 18px; color: var(--accent); margin-bottom: 14px; }
+
+  .gps-bar { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; font-family: var(--font-mono); }
+  .gps-text { flex: 1; color: var(--muted); }
+  .gps-text strong { color: var(--text); }
+  .accuracy-pill { padding: 2px 8px; border-radius: 20px; font-size: 10px; background: var(--surface); color: var(--muted); }
+  .accuracy-pill.good { color: var(--accent); }
+  .accuracy-pill.bad { color: var(--warn); }
+
+  .shift-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+  .shift-bar .btn { flex: 1; }
+  .section-title { font-size: 11px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  .timeline-item { display: flex; gap: 14px; margin-bottom: 4px; }
+  .tl-left { display: flex; flex-direction: column; align-items: center; width: 32px; flex-shrink: 0; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); flex-shrink: 0; margin-top: 4px; }
+  .tl-dot.hq { background: var(--accent2); }
+  .tl-line { width: 1px; background: var(--border); flex: 1; margin-top: 2px; min-height: 24px; }
+  .tl-content { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; flex: 1; margin-bottom: 8px; }
+  .tl-name { font-size: 14px; font-weight: 700; }
+  .tl-meta { font-size: 11px; font-family: var(--font-mono); color: var(--muted); margin-top: 2px; }
+  .tl-duration { font-size: 12px; font-family: var(--font-mono); color: var(--accent); font-weight: 500; margin-top: 4px; }
+
+  .total-bar { background: var(--surface2); border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .total-bar strong { font-size: 18px; color: var(--accent); font-family: var(--font-display); font-weight: 700; }
+  .summary-item { margin-bottom: 12px; }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .summary-name { font-size: 13px; font-weight: 600; }
+  .summary-time { font-size: 12px; font-family: var(--font-mono); color: var(--accent); }
+  .summary-bar-track { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .summary-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.5s ease; }
+
+  .history-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: border-color 0.15s; position: relative; }
+  .history-card:hover { border-color: var(--accent2); }
+  .history-card.manual-entry { border-color: rgba(255,179,71,0.3); }
+  .history-card.manual-entry::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--warn); border-radius: 12px 0 0 12px; }
+  .history-date { font-size: 13px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .history-meta { font-size: 11px; font-family: var(--font-mono); color: var(--muted); }
+  .history-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .manual-badge { font-size: 9px; font-family: var(--font-mono); color: var(--warn); background: rgba(255,179,71,0.1); border: 1px solid rgba(255,179,71,0.3); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .data-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .data-card-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .data-card-desc { font-size: 12px; font-family: var(--font-mono); color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+  .data-card-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .data-stat { font-size: 11px; font-family: var(--font-mono); color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .data-stat span { color: var(--accent); }
+  .restore-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-top: 10px; }
+  .restore-zone:hover { border-color: var(--accent); background: rgba(0,229,160,0.04); }
+  .restore-zone input { display: none; }
+  .restore-zone-text { font-size: 13px; font-family: var(--font-mono); color: var(--muted); }
+  .restore-zone-text strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+  .resume-banner { background: rgba(255,179,71,0.08); border: 1px solid var(--warn); border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; }
+  .resume-banner-title { font-size: 14px; font-weight: 700; color: var(--warn); margin-bottom: 6px; }
+  .resume-banner-meta { font-size: 12px; font-family: var(--font-mono); color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .resume-banner-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .auto-end-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,153,255,0.1); border: 1px solid rgba(0,153,255,0.3); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-family: var(--font-mono); color: var(--accent2); margin-bottom: 8px; margin-right: 6px; }
+  .auto-start-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.3); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-family: var(--font-mono); color: var(--accent); margin-bottom: 8px; }
+
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .settings-label { font-size: 13px; font-weight: 600; }
+  .settings-sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+  .settings-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; max-width: 480px; margin: auto; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+  .modal-sub { font-size: 12px; color: var(--muted); font-family: var(--font-mono); margin-bottom: 20px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .edit-visit-row { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+  .edit-visit-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+  .locations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .loc-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; transition: all 0.15s; position: relative; }
+  .loc-chip:hover { border-color: var(--accent2); }
+  .loc-chip.registered { border-color: var(--accent); }
+  .loc-chip.current { border-color: var(--accent); background: rgba(0,229,160,0.08); }
+  .loc-chip-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .loc-chip-status { font-size: 10px; font-family: var(--font-mono); color: var(--muted); }
+  .loc-chip.registered .loc-chip-status { color: var(--accent); }
+  .registered-badge { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .notification { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; padding: 10px 20px; font-size: 13px; font-family: var(--font-mono); z-index: 300; opacity: 0; transition: opacity 0.3s; white-space: nowrap; pointer-events: none; }
+  .notification.show { opacity: 1; }
+  .date-header { font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  input[type=range] { accent-color: var(--accent); }
+  .add-visit-btn { width: 100%; padding: 12px; background: transparent; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-family: var(--font-display); font-size: 13px; cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
+  .add-visit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .error-msg { color: var(--danger); font-size: 11px; font-family: var(--font-mono); margin-top: 6px; display: none; }
+  .error-msg.show { display: block; }
+  .warning-box { background: rgba(255,179,71,0.08); border: 1px solid rgba(255,179,71,0.3); border-radius: 10px; padding: 12px 16px; font-size: 12px; font-family: var(--font-mono); color: var(--warn); line-height: 1.6; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">Shift<span>Track</span></div>
+  <div class="shift-status">
+    <div class="dot" id="shiftDot"></div>
+    <span id="shiftStatusText">No active shift</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('home')">Locations</div>
+  <div class="tab" onclick="showTab('shift')">Shift</div>
+  <div class="tab" onclick="showTab('timeline')">Timeline</div>
+  <div class="tab" onclick="showTab('history')">History</div>
+  <div class="tab" onclick="showTab('log')">Log Past</div>
+  <div class="tab" onclick="showTab('data')">Data</div>
+  <div class="tab" onclick="showTab('settings')">Setup</div>
+</div>
+
+<!-- HOME -->
+<div class="panel active" id="panel-home">
+  <div class="section-title" style="margin-bottom:14px;">All Locations</div>
+  <div id="homeLocList"></div>
+</div>
+
+<!-- SHIFT -->
+<div class="panel" id="panel-shift">
+  <div id="resumeBanner" style="display:none;"></div>
+  <div id="shiftBadges" style="margin-bottom:4px;"></div>
+  <div class="gps-bar">
+    <span>📡</span>
+    <div class="gps-text" id="gpsText"><strong>GPS inactive</strong> — start a shift to enable</div>
+    <span class="accuracy-pill" id="accuracyPill">–</span>
+  </div>
+  <div class="shift-bar">
+    <button class="btn btn-primary" id="startShiftBtn" onclick="startShift()">▶ Start Shift</button>
+    <button class="btn btn-danger" id="endShiftBtn" onclick="endShift()" disabled>■ End Shift</button>
+  </div>
+  <div class="location-card">
+    <div class="loc-label">Current Location</div>
+    <div class="loc-name" id="currentLocName">—</div>
+    <div class="loc-timer" id="currentLocTimer">00:00:00</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="openManualModal()">Manual Check-in</button>
+    </div>
+  </div>
+  <div class="section-title">Today's Visits</div>
+  <div id="todayVisits" class="empty"><div class="empty-icon">🗺️</div>Start your shift to begin tracking</div>
+</div>
+
+<!-- TIMELINE -->
+<div class="panel" id="panel-timeline">
+  <div class="date-header" id="timelineDate"></div>
+  <div id="timelineContent" class="empty"><div class="empty-icon">📅</div>No timeline yet — start a shift</div>
+  <div id="summaryContent"></div>
+</div>
+
+<!-- HISTORY -->
+<div class="panel" id="panel-history">
+  <div class="section-title">Past Shifts</div>
+  <div id="historyContent" class="empty"><div class="empty-icon">📁</div>Completed shifts will appear here</div>
+</div>
+
+<!-- LOG PAST SHIFT -->
+<div class="panel" id="panel-log">
+  <div class="section-title">Log a Past Shift</div>
+  <p style="font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:20px;line-height:1.6;">Forgot to start your shift? Enter the date and add each location visit manually.</p>
+  <div class="form-group"><label class="form-label">Shift Date</label><input type="date" class="form-input" id="logDate"></div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Shift Start</label><input type="time" class="form-input" id="logShiftStart"></div>
+    <div class="form-group"><label class="form-label">Shift End</label><input type="time" class="form-input" id="logShiftEnd"></div>
+  </div>
+  <hr class="modal-divider">
+  <div class="section-title">Location Visits</div>
+  <div id="logVisitsList"></div>
+  <button class="add-visit-btn" onclick="addLogVisit()">+ Add Location Visit</button>
+  <div class="error-msg" id="logError"></div>
+  <button class="btn btn-primary btn-full" onclick="saveLoggedShift()" style="margin-top:4px;">Save Shift</button>
+</div>
+
+<!-- DATA -->
+<div class="panel" id="panel-data">
+  <div class="section-title" style="margin-bottom:16px;">Export & Backup</div>
+  <div class="data-card">
+    <div class="data-card-title">📦 Full Backup <span style="font-size:11px;font-family:var(--font-mono);color:var(--accent);background:rgba(0,229,160,0.1);padding:2px 8px;border-radius:4px;">JSON</span></div>
+    <div class="data-card-desc">Exports everything — all shift history, GPS location pins, and settings.</div>
+    <div class="data-card-actions"><button class="btn btn-primary btn-sm" onclick="exportJSON()">⬇ Download Backup</button></div>
+    <div class="data-stat" id="jsonStat">Loading...</div>
+  </div>
+  <div class="data-card">
+    <div class="data-card-title">📊 Shift History Export <span style="font-size:11px;font-family:var(--font-mono);color:var(--accent2);background:rgba(0,153,255,0.1);padding:2px 8px;border-radius:4px;">CSV</span></div>
+    <div class="data-card-desc">Exports your shift history as a spreadsheet. Open in Excel or Google Sheets.</div>
+    <div class="data-card-actions"><button class="btn btn-accent2 btn-sm" onclick="exportCSV()">⬇ Download CSV</button></div>
+    <div class="data-stat" id="csvStat">Loading...</div>
+  </div>
+  <div class="data-card">
+    <div class="data-card-title">♻️ Restore from Backup</div>
+    <div class="data-card-desc">Upload a previously exported JSON backup file. Merges with existing data — duplicates skipped.</div>
+    <div class="warning-box">⚠ Only upload backup files exported from ShiftTrack.</div>
+    <div class="restore-zone" onclick="document.getElementById('restoreInput').click()">
+      <input type="file" id="restoreInput" accept=".json" onchange="handleRestore(this)">
+      <div class="restore-zone-text"><strong>Tap to choose backup file</strong>Select a ShiftTrack .json backup</div>
+    </div>
+  </div>
+  <div class="data-card" style="border-color:rgba(255,77,106,0.2);">
+    <div class="data-card-title" style="color:var(--danger);">🗑 Clear All Data</div>
+    <div class="data-card-desc">Permanently deletes all shift history and GPS pins. Export a backup first.</div>
+    <div class="data-card-actions"><button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear Everything</button></div>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div class="panel" id="panel-settings">
+  <div class="section-title">Shift Automation</div>
+  <div class="settings-row">
+    <div>
+      <div class="settings-label">Auto-start Time</div>
+      <div class="settings-sub">Weekdays only · starts shift if none active</div>
+    </div>
+    <div class="settings-right">
+      <input type="time" class="form-input" id="autoStartTime" style="width:120px;" oninput="saveSettings()">
+      <button class="btn btn-danger btn-sm" onclick="clearAutoStart()" title="Clear">✕</button>
+    </div>
+  </div>
+  <div class="settings-row">
+    <div>
+      <div class="settings-label">Auto-end Time</div>
+      <div class="settings-sub">Ends active shift at this time</div>
+    </div>
+    <div class="settings-right">
+      <input type="time" class="form-input" id="autoEndTime" style="width:120px;" oninput="saveSettings()">
+      <button class="btn btn-danger btn-sm" onclick="clearAutoEnd()" title="Clear">✕</button>
+    </div>
+  </div>
+  <div style="margin-top:24px;">
+    <div class="section-title">Register GPS Locations</div>
+    <p style="font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:16px;line-height:1.6;">Stand at each location and tap its card to save your GPS coordinates.</p>
+    <div class="locations-grid" id="locationsGrid"></div>
+  </div>
+  <div>
+    <label class="section-title" style="display:block;margin-bottom:8px;">Detection Radius</label>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <input type="range" min="30" max="300" value="100" id="radiusSlider" oninput="updateRadius(this.value)" style="flex:1;">
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent)" id="radiusLabel">100m</span>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL MODAL -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal">
+    <div class="modal-title">Manual Check-in</div>
+    <div class="modal-sub">Select a location to check in manually</div>
+    <div id="manualLocList" style="max-height:300px;overflow-y:auto;"></div>
+    <div class="modal-actions"><button class="btn btn-secondary" style="flex:1" onclick="closeAllModals()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- EDIT SHIFT MODAL -->
+<div class="modal-overlay" id="editShiftModal">
+  <div class="modal">
+    <div class="modal-title" id="editShiftTitle">Edit Shift</div>
+    <div class="modal-sub" id="editShiftSub"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Shift Start</label><input type="time" class="form-input" id="editShiftStart"></div>
+      <div class="form-group"><label class="form-label">Shift End</label><input type="time" class="form-input" id="editShiftEnd"></div>
+    </div>
+    <hr class="modal-divider">
+    <div class="section-title">Location Visits</div>
+    <div id="editVisitsList"></div>
+    <button class="add-visit-btn" onclick="addEditVisit()">+ Add Location Visit</button>
+    <div class="error-msg" id="editError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeAllModals()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="saveEditedShift()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+const LOCATIONS = ['Store #102','Store #103','Store #104','Store #201','Store #203','Store #205','Store #206','Store #207','Store #208','Store #211','Store #222','Store #364','Store #381','HQ'];
+const STORAGE_KEY = 'shifttrack_v6';
+const ACTIVE_SHIFT_KEY = 'shifttrack_v6_active';
+
+let state = {
+  shiftActive:false,shiftStart:null,currentLocation:null,locationStart:null,visits:[],
+  gpsCoords:null,gpsAccuracy:null,registeredLocations:{},detectionRadius:100,watchId:null,
+  history:[],timerInterval:null,autoEndTime:'',autoStartTime:'09:00',
+  autoEndCheckInterval:null,activeSaveInterval:null,autoStartCheckInterval:null,
+};
+let editingIndex=-1,logVisitCount=0,editVisitCount=0;
+
+function load(){
+  try{const saved=localStorage.getItem(STORAGE_KEY);if(saved){const p=JSON.parse(saved);state.registeredLocations=p.registeredLocations||{};state.detectionRadius=p.detectionRadius||100;state.history=p.history||[];state.autoEndTime=p.autoEndTime||'';state.autoStartTime=p.autoStartTime!==undefined?p.autoStartTime:'09:00';document.getElementById('radiusSlider').value=state.detectionRadius;document.getElementById('radiusLabel').textContent=state.detectionRadius+'m';document.getElementById('autoEndTime').value=state.autoEndTime;document.getElementById('autoStartTime').value=state.autoStartTime;}}catch(e){}
+  document.getElementById('logDate').value=new Date().toISOString().split('T')[0];
+  checkForInterruptedShift();startAutoStartCheck();
+}
+
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({registeredLocations:state.registeredLocations,detectionRadius:state.detectionRadius,history:state.history,autoEndTime:state.autoEndTime,autoStartTime:state.autoStartTime}));}catch(e){}}
+
+function saveSettings(){state.autoStartTime=document.getElementById('autoStartTime').value;state.autoEndTime=document.getElementById('autoEndTime').value;save();updateShiftBadges();}
+function clearAutoStart(){state.autoStartTime='';document.getElementById('autoStartTime').value='';save();updateShiftBadges();notify('Auto-start time cleared');}
+function clearAutoEnd(){state.autoEndTime='';document.getElementById('autoEndTime').value='';save();updateShiftBadges();notify('Auto-end time cleared');}
+
+function saveActiveShift(){if(!state.shiftActive)return;try{localStorage.setItem(ACTIVE_SHIFT_KEY,JSON.stringify({shiftStart:state.shiftStart,currentLocation:state.currentLocation,locationStart:state.locationStart,visits:state.visits,savedAt:Date.now()}));}catch(e){}}
+function clearActiveShift(){try{localStorage.removeItem(ACTIVE_SHIFT_KEY);}catch(e){}}
+
+function checkForInterruptedShift(){try{const saved=localStorage.getItem(ACTIVE_SHIFT_KEY);if(!saved)return;const data=JSON.parse(saved);if(Date.now()-data.savedAt>86400000){clearActiveShift();return;}showResumeBanner(data);}catch(e){clearActiveShift();}}
+
+function showResumeBanner(data){const banner=document.getElementById('resumeBanner');const visitCount=data.visits.length+(data.currentLocation?1:0);banner.className='resume-banner';banner.innerHTML=`<div class="resume-banner-title">⚠ Interrupted Shift Found</div><div class="resume-banner-meta">Started ${new Date(data.shiftStart).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} at ${formatTime(data.shiftStart)}<br>${visitCount} location visit${visitCount!==1?'s':''} recorded before closing</div><div class="resume-banner-actions"><button class="btn btn-warn btn-sm" onclick="resumeShift()">Resume Shift</button><button class="btn btn-secondary btn-sm" onclick="discardInterrupted()">End & Save Now</button><button class="btn btn-danger btn-sm" onclick="discardInterrupted(true)">Discard</button></div>`;banner.style.display='block';showTab('shift');}
+
+function resumeShift(){try{const data=JSON.parse(localStorage.getItem(ACTIVE_SHIFT_KEY));state.shiftActive=true;state.shiftStart=data.shiftStart;state.visits=data.visits||[];state.currentLocation=data.currentLocation;state.locationStart=data.currentLocation?Date.now():null;document.getElementById('resumeBanner').style.display='none';document.getElementById('startShiftBtn').disabled=true;document.getElementById('endShiftBtn').disabled=false;document.getElementById('shiftDot').classList.add('active');document.getElementById('shiftStatusText').textContent='Shift active';document.getElementById('currentLocName').textContent=state.currentLocation||'—';startGPS();startTimers();startAutoEndCheck();startActiveShiftSave();renderTodayVisits();renderHomeList();updateShiftBadges();notify('Shift resumed!');}catch(e){clearActiveShift();}}
+
+function discardInterrupted(fullyDiscard=false){try{if(!fullyDiscard){const data=JSON.parse(localStorage.getItem(ACTIVE_SHIFT_KEY));if(data.currentLocation)data.visits.push({name:data.currentLocation,start:data.locationStart,end:Date.now()});state.history.unshift({date:new Date(data.shiftStart).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),start:data.shiftStart,end:Date.now(),visits:data.visits,manual:false});save();notify('Shift ended and saved');}else{notify('Interrupted shift discarded');}}catch(e){}clearActiveShift();document.getElementById('resumeBanner').style.display='none';}
+
+function startActiveShiftSave(){state.activeSaveInterval=setInterval(()=>{if(state.shiftActive)saveActiveShift();},30000);}
+
+function startAutoStartCheck(){if(state.autoStartCheckInterval)clearInterval(state.autoStartCheckInterval);state.autoStartCheckInterval=setInterval(()=>{if(state.shiftActive||!state.autoStartTime)return;const now=new Date(),day=now.getDay();if(day===0||day===6)return;const[h,m]=state.autoStartTime.split(':').map(Number);if(now.getHours()===h&&now.getMinutes()===m&&now.getSeconds()<30)startShift();},15000);}
+
+function startAutoEndCheck(){if(state.autoEndCheckInterval)clearInterval(state.autoEndCheckInterval);state.autoEndCheckInterval=setInterval(()=>{if(!state.shiftActive||!state.autoEndTime)return;const now=new Date();const[h,m]=state.autoEndTime.split(':').map(Number);if(now.getHours()===h&&now.getMinutes()===m&&now.getSeconds()<30){notify('⏰ Auto-end time reached — ending shift');endShift();}},15000);}
+
+function updateShiftBadges(){const el=document.getElementById('shiftBadges');let html='';if(state.shiftActive&&state.autoEndTime)html+=`<span class="auto-end-badge">⏰ Auto-ends ${formatTimeFromInput(state.autoEndTime)}</span>`;if(!state.shiftActive&&state.autoStartTime)html+=`<span class="auto-start-badge">▶ Auto-starts ${formatTimeFromInput(state.autoStartTime)} weekdays</span>`;el.innerHTML=html;el.style.marginBottom=html?'12px':'0';}
+
+function formatTimeFromInput(t){if(!t)return'';const[h,m]=t.split(':').map(Number),ap=h>=12?'PM':'AM',h12=h%12||12;return`${h12}:${m.toString().padStart(2,'0')} ${ap}`;}
+
+function exportJSON(){const payload={_version:1,_exported:new Date().toISOString(),_app:'ShiftTrack',registeredLocations:state.registeredLocations,detectionRadius:state.detectionRadius,history:state.history,autoEndTime:state.autoEndTime,autoStartTime:state.autoStartTime};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`shifttrack-backup-${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(url);notify('Backup downloaded!');}
+function exportCSV(){if(!state.history.length){notify('No shifts to export yet');return;}const rows=[['Date','Shift Start','Shift End','Location','Arrived','Departed','Duration (mins)','Entry Type']];state.history.forEach(shift=>{const d=new Date(shift.start).toLocaleDateString('en-US'),ss=formatTime(shift.start),se=formatTime(shift.end),et=shift.manual?'Manual':'Tracked';if(!shift.visits.length){rows.push([d,ss,se,'(no visits)','','','',et]);}else shift.visits.forEach(v=>rows.push([d,ss,se,v.name,formatTime(v.start),formatTime(v.end),Math.round((v.end-v.start)/60000),et]));});const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`shifttrack-export-${new Date().toISOString().split('T')[0]}.csv`;a.click();URL.revokeObjectURL(url);notify('CSV downloaded!');}
+function handleRestore(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const data=JSON.parse(e.target.result);if(data._app!=='ShiftTrack'){notify('❌ Not a valid ShiftTrack backup');input.value='';return;}const existingStarts=new Set(state.history.map(s=>s.start));let added=0;(data.history||[]).forEach(shift=>{if(!existingStarts.has(shift.start)){state.history.push(shift);added++;}});state.history.sort((a,b)=>b.start-a.start);Object.entries(data.registeredLocations||{}).forEach(([name,coords])=>{if(!state.registeredLocations[name])state.registeredLocations[name]=coords;});if(data.autoEndTime&&!state.autoEndTime){state.autoEndTime=data.autoEndTime;document.getElementById('autoEndTime').value=state.autoEndTime;}if(data.autoStartTime&&!state.autoStartTime){state.autoStartTime=data.autoStartTime;document.getElementById('autoStartTime').value=state.autoStartTime;}save();updateDataStats();notify(`✓ Restored! ${added} shift${added!==1?'s':''} added.`);input.value='';}catch(err){notify('❌ Could not read backup file');input.value='';}};reader.readAsText(file);}
+function clearAllData(){if(!confirm('This will permanently delete ALL your shift history and GPS pins. Are you sure?'))return;state.history=[];state.registeredLocations={};save();updateDataStats();renderHistory();renderLocations();renderHomeList();notify('All data cleared');}
+function updateDataStats(){const sc=state.history.length,vc=state.history.reduce((a,s)=>a+s.visits.length,0),pc=Object.keys(state.registeredLocations).length,kb=Math.round(JSON.stringify({registeredLocations:state.registeredLocations,history:state.history}).length/1024);document.getElementById('jsonStat').innerHTML=`<span>${sc}</span> shifts · <span>${pc}</span> GPS pins · ~<span>${kb}</span>KB`;document.getElementById('csvStat').innerHTML=`<span>${sc}</span> shifts · <span>${vc}</span> location visits`;}
+
+function getLastVisit(n){for(let i=0;i<state.history.length;i++){const s=state.history[i];for(let j=s.visits.length-1;j>=0;j--){if(s.visits[j].name===n)return s.visits[j].end||s.visits[j].start;}}return null;}
+function formatLastVisit(ts){if(!ts)return null;const d=Date.now()-ts,m=Math.floor(d/60000),h=Math.floor(d/3600000),dy=Math.floor(d/86400000);if(m<2)return{label:'Just now',cls:'here-now'};if(m<60)return{label:`${m}m ago`,cls:'recent'};if(h<24)return{label:`${h}h ago`,cls:'recent'};if(dy===1)return{label:'Yesterday',cls:'recent'};if(dy<=5)return{label:`${dy} days ago`,cls:'medium'};return{label:`${dy} days ago`,cls:'overdue'};}
+function formatDuration(s){return`${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;}
+function formatDurationShort(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h}h ${m}m`:`${m}m`;}
+function pad(n){return n.toString().padStart(2,'0');}
+function formatTime(ts){return new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});}
+function timeToMs(d,t){if(!d||!t)return null;return new Date(`${d}T${t}:00`).getTime();}
+function tsToTimeInput(ts){const d=new Date(ts);return`${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+function tsToDateInput(ts){return new Date(ts).toISOString().split('T')[0];}
+function locationSelectHTML(sel='',id=''){return`<select class="form-select" id="${id}"><option value="">— Select location —</option>${LOCATIONS.map(l=>`<option value="${l}"${l===sel?' selected':''}>${l}</option>`).join('')}</select>`;}
+
+function showTab(name){const tabs=['home','shift','timeline','history','log','data','settings'];document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===name));document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+name).classList.add('active');if(name==='home')renderHomeList();if(name==='timeline')renderTimeline();if(name==='history')renderHistory();if(name==='log')initLogPanel();if(name==='data')updateDataStats();if(name==='settings')renderLocations();}
+
+function renderHomeList(){const items=LOCATIONS.map(name=>{const isHere=state.currentLocation===name,lastTs=getLastVisit(name),lastInfo=lastTs?formatLastVisit(lastTs):null;return{name,isHere,lastTs,lastInfo,reg:!!state.registeredLocations[name]};}).sort((a,b)=>{if(a.isHere&&!b.isHere)return -1;if(!a.isHere&&b.isHere)return 1;if(a.lastTs&&b.lastTs)return b.lastTs-a.lastTs;if(a.lastTs)return -1;if(b.lastTs)return 1;return 0;});document.getElementById('homeLocList').innerHTML=items.map(item=>{const hc=item.isHere?'here':(item.lastInfo?.cls==='overdue'?'overdue':'');let st='Never visited',sc='';if(item.isHere){st='● Here now';sc='here-now';}else if(item.lastInfo){st=`Last visit: ${item.lastInfo.label}`;sc=item.lastInfo.cls;}return`<div class="loc-list-item ${hc}"><div class="loc-list-left"><div class="loc-list-name">${item.name}</div><div class="loc-list-sub ${sc}">${st}</div></div><div class="loc-list-right"><div class="loc-list-reg ${item.reg?'registered':''}">${item.reg?'📍 GPS set':'No GPS'}</div></div></div>`;}).join('');}
+
+function startShift(){state.shiftActive=true;state.shiftStart=Date.now();state.visits=[];state.currentLocation=null;state.locationStart=null;document.getElementById('startShiftBtn').disabled=true;document.getElementById('endShiftBtn').disabled=false;document.getElementById('shiftDot').classList.add('active');document.getElementById('shiftStatusText').textContent='Shift active';startGPS();startTimers();startAutoEndCheck();startActiveShiftSave();saveActiveShift();updateShiftBadges();}
+function endShift(){if(!state.shiftActive)return;if(state.currentLocation)state.visits.push({name:state.currentLocation,start:state.locationStart,end:Date.now()});state.history.unshift({date:new Date(state.shiftStart).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),start:state.shiftStart,end:Date.now(),visits:[...state.visits],manual:false});save();clearActiveShift();state.shiftActive=false;state.shiftStart=null;state.currentLocation=null;state.locationStart=null;state.visits=[];stopGPS();clearInterval(state.timerInterval);clearInterval(state.autoEndCheckInterval);clearInterval(state.activeSaveInterval);document.getElementById('startShiftBtn').disabled=false;document.getElementById('endShiftBtn').disabled=true;document.getElementById('shiftDot').classList.remove('active');document.getElementById('shiftStatusText').textContent='No active shift';document.getElementById('currentLocName').textContent='—';document.getElementById('currentLocTimer').textContent='00:00:00';document.getElementById('todayVisits').innerHTML='<div class="empty"><div class="empty-icon">🗺️</div>Start your shift to begin tracking</div>';document.getElementById('gpsText').innerHTML='<strong>GPS inactive</strong> — start a shift to enable';document.getElementById('accuracyPill').textContent='–';document.getElementById('accuracyPill').className='accuracy-pill';updateShiftBadges();notify('Shift ended — great work!');}
+
+function startGPS(){if(!navigator.geolocation){document.getElementById('gpsText').innerHTML='<strong>GPS not supported</strong>';return;}document.getElementById('gpsText').innerHTML='<strong>Acquiring GPS...</strong>';state.watchId=navigator.geolocation.watchPosition(onGPS,onGPSError,{enableHighAccuracy:true,maximumAge:10000,timeout:15000});}
+function stopGPS(){if(state.watchId!==null)navigator.geolocation.clearWatch(state.watchId);state.watchId=null;}
+function onGPS(pos){state.gpsCoords={lat:pos.coords.latitude,lng:pos.coords.longitude};state.gpsAccuracy=Math.round(pos.coords.accuracy);document.getElementById('gpsText').innerHTML=`<strong>GPS active</strong> — ±${state.gpsAccuracy}m`;const pill=document.getElementById('accuracyPill');pill.textContent=state.gpsAccuracy<=20?'Excellent':state.gpsAccuracy<=50?'Good':'Fair';pill.className='accuracy-pill '+(state.gpsAccuracy<=50?'good':'bad');detectLocation();}
+function onGPSError(){document.getElementById('gpsText').innerHTML='<strong>GPS error</strong> — use manual check-in';}
+function haversine(lat1,lng1,lat2,lng2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function detectLocation(){if(!state.gpsCoords||!state.shiftActive)return;let closest=null,closestDist=Infinity;for(const[name,coords]of Object.entries(state.registeredLocations)){const dist=haversine(state.gpsCoords.lat,state.gpsCoords.lng,coords.lat,coords.lng);if(dist<closestDist){closestDist=dist;closest=name;}}const detected=closestDist<=state.detectionRadius?closest:null;if(detected!==state.currentLocation)checkInTo(detected);}
+function checkInTo(locName){if(!state.shiftActive)return;if(state.currentLocation)state.visits.push({name:state.currentLocation,start:state.locationStart,end:Date.now()});state.currentLocation=locName;state.locationStart=locName?Date.now():null;document.getElementById('currentLocName').textContent=locName||'—';if(locName)notify(`Checked in: ${locName}`);saveActiveShift();renderTodayVisits();renderHomeList();}
+function startTimers(){state.timerInterval=setInterval(()=>{if(state.locationStart)document.getElementById('currentLocTimer').textContent=formatDuration(Math.floor((Date.now()-state.locationStart)/1000));},1000);}
+function renderTodayVisits(){const all=[...state.visits];if(state.currentLocation)all.push({name:state.currentLocation,start:state.locationStart,end:null});if(!all.length){document.getElementById('todayVisits').innerHTML='<div class="empty"><div class="empty-icon">🗺️</div>No visits yet</div>';return;}document.getElementById('todayVisits').innerHTML=all.slice().reverse().map(v=>`<div class="tl-content" style="margin-bottom:8px;"><div class="tl-name">${v.name}</div><div class="tl-meta">${formatTime(v.start)}${v.end?' → '+formatTime(v.end):' → now'}</div>${v.end?`<div class="tl-duration">${formatDurationShort(v.end-v.start)}</div>`:'<div class="tl-duration" style="color:var(--warn)">● Live</div>'}</div>`).join('');}
+
+function renderTimeline(){const all=[...state.visits];if(state.currentLocation)all.push({name:state.currentLocation,start:state.locationStart,end:Date.now()});document.getElementById('timelineDate').textContent=state.shiftActive?`Today — ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}`:'No active shift';if(!all.length){document.getElementById('timelineContent').innerHTML='<div class="empty"><div class="empty-icon">📅</div>No visits yet</div>';document.getElementById('summaryContent').innerHTML='';return;}document.getElementById('timelineContent').innerHTML=`<div class="section-title" style="margin-bottom:12px;">Timeline</div><div>${all.map((v,i)=>`<div class="timeline-item"><div class="tl-left"><div class="tl-dot${v.name==='HQ'?' hq':''}"></div>${i<all.length-1?'<div class="tl-line"></div>':''}</div><div class="tl-content"><div class="tl-name">${v.name}</div><div class="tl-meta">${formatTime(v.start)}${v.end?' → '+formatTime(v.end):' → now'}</div><div class="tl-duration">${formatDurationShort((v.end||Date.now())-v.start)}</div></div></div>`).join('')}</div>`;const totals={};all.forEach(v=>{totals[v.name]=(totals[v.name]||0)+((v.end||Date.now())-v.start);});const totalMs=Object.values(totals).reduce((a,b)=>a+b,0);const sorted=Object.entries(totals).sort((a,b)=>b[1]-a[1]);document.getElementById('summaryContent').innerHTML=`<div class="total-bar"><span>Total shift time</span><strong>${formatDurationShort(totalMs)}</strong></div><div class="section-title" style="margin-bottom:12px;">Time per Location</div><div>${sorted.map(([name,ms])=>`<div class="summary-item"><div class="summary-row"><span class="summary-name">${name}</span><span class="summary-time">${formatDurationShort(ms)}</span></div><div class="summary-bar-track"><div class="summary-bar-fill" style="width:${Math.round(ms/totalMs*100)}%"></div></div></div>`).join('')}</div>`;}
+
+function renderHistory(){if(!state.history.length){document.getElementById('historyContent').innerHTML='<div class="empty"><div class="empty-icon">📁</div>Completed shifts will appear here</div>';return;}document.getElementById('historyContent').innerHTML=state.history.map((shift,i)=>{const totalMs=shift.end-shift.start,locs=[...new Set(shift.visits.map(v=>v.name))];return`<div class="history-card ${shift.manual?'manual-entry':''}"><div class="history-date">${shift.date}${shift.manual?'<span class="manual-badge">Manual</span>':''}</div><div class="history-meta">${formatTime(shift.start)} → ${formatTime(shift.end)} · ${formatDurationShort(totalMs)} · ${locs.length} location${locs.length!==1?'s':''}</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:4px;">${locs.slice(0,4).join(', ')}${locs.length>4?'...':''}</div><div class="history-actions"><button class="btn btn-secondary btn-sm" onclick="openEditShift(${i})">✏️ Edit</button><button class="btn btn-danger btn-sm" onclick="deleteShift(${i})">Delete</button></div></div>`;}).join('');}
+function deleteShift(i){if(!confirm('Delete this shift?'))return;state.history.splice(i,1);save();renderHistory();notify('Shift deleted');}
+
+function openEditShift(i){editingIndex=i;const shift=state.history[i];editVisitCount=0;document.getElementById('editShiftTitle').textContent=`Edit Shift — ${shift.date}`;document.getElementById('editShiftSub').textContent='Adjust start/end times or edit individual location visits.';document.getElementById('editShiftStart').value=tsToTimeInput(shift.start);document.getElementById('editShiftEnd').value=tsToTimeInput(shift.end);document.getElementById('editError').classList.remove('show');document.getElementById('editVisitsList').innerHTML='';shift.visits.forEach(v=>addEditVisitRow(v.name,tsToTimeInput(v.start),tsToTimeInput(v.end)));document.getElementById('editShiftModal').classList.add('open');}
+function addEditVisit(){addEditVisitRow('','','');}
+function addEditVisitRow(locName='',startTime='',endTime=''){const id=editVisitCount++;const row=document.createElement('div');row.className='edit-visit-row';row.id=`edit-visit-${id}`;row.innerHTML=`<div class="edit-visit-row-header"><span class="visit-entry-num">Visit ${document.querySelectorAll('.edit-visit-row').length+1}</span><button class="visit-remove" onclick="document.getElementById('edit-visit-${id}').remove();renumberVisits('edit')">✕</button></div><div class="form-group" style="margin-bottom:10px;">${locationSelectHTML(locName,`edit-loc-${id}`)}</div><div class="form-row"><div class="form-group" style="margin-bottom:0"><label class="form-label">Arrived</label><input type="time" class="form-input" id="edit-start-${id}" value="${startTime}"></div><div class="form-group" style="margin-bottom:0"><label class="form-label">Left</label><input type="time" class="form-input" id="edit-end-${id}" value="${endTime}"></div></div>`;document.getElementById('editVisitsList').appendChild(row);}
+function saveEditedShift(){const shift=state.history[editingIndex],dateStr=tsToDateInput(shift.start);const newStart=timeToMs(dateStr,document.getElementById('editShiftStart').value);const newEnd=timeToMs(dateStr,document.getElementById('editShiftEnd').value);const errEl=document.getElementById('editError');if(!newStart||!newEnd){errEl.textContent='Please set shift start and end times.';errEl.classList.add('show');return;}if(newEnd<=newStart){errEl.textContent='Shift end must be after shift start.';errEl.classList.add('show');return;}const visitRows=document.querySelectorAll('#editVisitsList .edit-visit-row'),visits=[];for(const row of visitRows){const idNum=row.id.replace('edit-visit-','');const loc=document.getElementById(`edit-loc-${idNum}`)?.value;const s=timeToMs(dateStr,document.getElementById(`edit-start-${idNum}`)?.value);const e=timeToMs(dateStr,document.getElementById(`edit-end-${idNum}`)?.value);if(!loc){errEl.textContent='Please select a location for each visit.';errEl.classList.add('show');return;}if(!s||!e){errEl.textContent='Please set arrival and departure times.';errEl.classList.add('show');return;}if(e<=s){errEl.textContent='Departure must be after arrival.';errEl.classList.add('show');return;}visits.push({name:loc,start:s,end:e});}visits.sort((a,b)=>a.start-b.start);state.history[editingIndex]={...shift,start:newStart,end:newEnd,visits};save();closeAllModals();renderHistory();notify('Shift updated!');}
+
+function initLogPanel(){logVisitCount=0;document.getElementById('logVisitsList').innerHTML='';document.getElementById('logError').classList.remove('show');addLogVisit();}
+function addLogVisit(){const id=logVisitCount++;const row=document.createElement('div');row.className='visit-entry';row.id=`log-visit-${id}`;row.innerHTML=`<div class="visit-entry-header"><span class="visit-entry-num">Visit ${document.querySelectorAll('.visit-entry').length+1}</span><button class="visit-remove" onclick="document.getElementById('log-visit-${id}').remove();renumberVisits('log')">✕</button></div><div class="form-group" style="margin-bottom:10px;">${locationSelectHTML('',`log-loc-${id}`)}</div><div class="form-row"><div class="form-group" style="margin-bottom:0"><label class="form-label">Arrived</label><input type="time" class="form-input" id="log-start-${id}"></div><div class="form-group" style="margin-bottom:0"><label class="form-label">Left</label><input type="time" class="form-input" id="log-end-${id}"></div></div>`;document.getElementById('logVisitsList').appendChild(row);}
+function renumberVisits(prefix){const rows=document.querySelectorAll(`.${prefix==='log'?'visit-entry':'edit-visit-row'}`);rows.forEach((row,i)=>{const n=row.querySelector('.visit-entry-num');if(n)n.textContent=`Visit ${i+1}`;});}
+function saveLoggedShift(){const dateStr=document.getElementById('logDate').value;const sst=document.getElementById('logShiftStart').value,set=document.getElementById('logShiftEnd').value;const errEl=document.getElementById('logError');if(!dateStr){errEl.textContent='Please select a shift date.';errEl.classList.add('show');return;}if(!sst||!set){errEl.textContent='Please set shift start and end times.';errEl.classList.add('show');return;}const shiftStart=timeToMs(dateStr,sst),shiftEnd=timeToMs(dateStr,set);if(shiftEnd<=shiftStart){errEl.textContent='Shift end must be after shift start.';errEl.classList.add('show');return;}const visitRows=document.querySelectorAll('#logVisitsList .visit-entry'),visits=[];for(const row of visitRows){const idNum=row.id.replace('log-visit-','');const loc=document.getElementById(`log-loc-${idNum}`)?.value;const s=timeToMs(dateStr,document.getElementById(`log-start-${idNum}`)?.value);const e=timeToMs(dateStr,document.getElementById(`log-end-${idNum}`)?.value);if(!loc){errEl.textContent='Please select a location for each visit.';errEl.classList.add('show');return;}if(!s||!e){errEl.textContent='Please set arrival and departure times.';errEl.classList.add('show');return;}if(e<=s){errEl.textContent='Departure must be after arrival.';errEl.classList.add('show');return;}visits.push({name:loc,start:s,end:e});}visits.sort((a,b)=>a.start-b.start);const newShift={date:new Date(shiftStart).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),start:shiftStart,end:shiftEnd,visits,manual:true};let insertAt=state.history.length;for(let i=0;i<state.history.length;i++){if(state.history[i].start<shiftStart){insertAt=i;break;}}state.history.splice(insertAt,0,newShift);save();logVisitCount=0;document.getElementById('logVisitsList').innerHTML='';errEl.classList.remove('show');addLogVisit();notify('Past shift saved!');showTab('history');}
+
+function renderLocations(){document.getElementById('locationsGrid').innerHTML=LOCATIONS.map(name=>{const reg=state.registeredLocations[name],isCurrent=state.currentLocation===name;return`<div class="loc-chip ${reg?'registered':''} ${isCurrent?'current':''}" onclick="registerLocation('${name}')">${reg?'<div class="registered-badge"></div>':''}<div class="loc-chip-name">${name}</div><div class="loc-chip-status">${isCurrent?'● Here now':reg?'✓ Registered':'Tap to register'}</div></div>`;}).join('');}
+function registerLocation(name){if(!navigator.geolocation){notify('GPS not available');return;}notify(`Getting GPS for ${name}...`);navigator.geolocation.getCurrentPosition(pos=>{state.registeredLocations[name]={lat:pos.coords.latitude,lng:pos.coords.longitude};save();notify(`✓ ${name} registered!`);renderLocations();if(state.shiftActive)detectLocation();},()=>notify('GPS error — try again'),{enableHighAccuracy:true,timeout:10000});}
+function updateRadius(val){state.detectionRadius=parseInt(val);document.getElementById('radiusLabel').textContent=val+'m';save();}
+
+function openManualModal(){if(!state.shiftActive){notify('Start a shift first');return;}document.getElementById('manualLocList').innerHTML=LOCATIONS.map(name=>`<div class="tl-content" style="cursor:pointer;margin-bottom:8px;" onclick="manualCheckIn('${name}')"><div style="font-weight:700;font-size:14px;">${name}</div></div>`).join('')+`<div class="tl-content" style="cursor:pointer;margin-bottom:8px;border-color:var(--danger);" onclick="manualCheckIn(null)"><div style="font-weight:700;font-size:14px;color:var(--danger);">Leave location</div></div>`;document.getElementById('manualModal').classList.add('open');}
+function manualCheckIn(name){closeAllModals();checkInTo(name);}
+function closeAllModals(){document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('open'));}
+function notify(msg){const el=document.getElementById('notification');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+
+load();
+renderHomeList();
+updateShiftBadges();
+</script>
+</body>
+</html>
