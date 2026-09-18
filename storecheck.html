@@ -287,6 +287,7 @@
       <div class="data-card-title">📦 Full Backup <span style="font-size:11px;font-family:var(--font-mono);color:var(--accent);background:rgba(0,229,160,0.1);padding:2px 8px;border-radius:4px;">JSON</span></div>
       <div class="data-card-desc">Exports all visits, notes, and GPS pins. Re-importable on any device.</div>
       <button class="btn btn-primary btn-sm" onclick="exportJSON()">⬇ Share / Download Backup</button>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="openTextBackupModal()">📋 View Backup as Text</button>
       <div class="data-stat" id="jsonStat">—</div>
     </div>
     <div class="data-card">
@@ -338,6 +339,20 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" style="flex:1" onclick="closeNoteModal()">Cancel</button>
       <button class="btn btn-primary" style="flex:1" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="textBackupModal">
+  <div class="modal">
+    <div class="modal-title">Backup as Text</div>
+    <div class="modal-sub">Tap the box, select all, then copy — paste it into Notes, Messages, or an email to yourself.</div>
+    <div class="form-group">
+      <textarea class="form-textarea" id="textBackupContent" readonly style="min-height:220px;font-size:11px" onclick="this.focus();this.select();"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeTextBackupModal()">Close</button>
+      <button class="btn btn-primary" style="flex:1" onclick="copyTextBackup()">Copy</button>
     </div>
   </div>
 </div>
@@ -394,7 +409,11 @@ function saveLogVisit(){const loc=document.getElementById('logLocation').value;c
 function renderLocations(){document.getElementById('locationsGrid').innerHTML=LOCATIONS.map(name=>{const reg=state.registeredLocations[name];return`<div class="loc-chip ${reg?'registered':''}" onclick="registerLocation('${name}')">${reg?'<div class="reg-badge"></div>':''}<div class="loc-chip-name">${name}</div><div class="loc-chip-status">${reg?'✓ Registered':'Tap to register'}</div></div>`;}).join('');}
 function registerLocation(name){if(!navigator.geolocation){notify('GPS not supported');return;}notify(`Getting GPS for ${name}...`);navigator.geolocation.getCurrentPosition(pos=>{state.registeredLocations[name]={lat:pos.coords.latitude,lng:pos.coords.longitude};save();notify(`✓ ${name} registered! (±${Math.round(pos.coords.accuracy)}m)`);renderLocations();},()=>{notify('Retrying...');navigator.geolocation.getCurrentPosition(pos=>{state.registeredLocations[name]={lat:pos.coords.latitude,lng:pos.coords.longitude};save();notify(`✓ ${name} registered! (±${Math.round(pos.coords.accuracy)}m)`);renderLocations();},err=>{const msgs={1:'Permission denied',2:'GPS unavailable',3:'GPS timed out — try again'};notify(msgs[err.code]||'GPS error — try again');},{enableHighAccuracy:false,timeout:30000,maximumAge:60000});},{enableHighAccuracy:true,timeout:15000,maximumAge:0});}
 function updateRadius(val){state.detectionRadius=parseInt(val);document.getElementById('radiusLabel').textContent=val+'m';save();}
-async function exportJSON(){const payload={_version:2,_exported:new Date().toISOString(),_app:'StoreCheck',visits:state.visits,registeredLocations:state.registeredLocations,detectionRadius:state.detectionRadius};const filename=`storecheck-backup-${new Date().toISOString().split('T')[0]}.json`;const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+function buildBackupPayload(){return{_version:2,_exported:new Date().toISOString(),_app:'StoreCheck',visits:state.visits,registeredLocations:state.registeredLocations,detectionRadius:state.detectionRadius};}
+function openTextBackupModal(){const el=document.getElementById('textBackupContent');el.value=JSON.stringify(buildBackupPayload(),null,2);document.getElementById('textBackupModal').classList.add('open');setTimeout(()=>{el.focus();el.select();},50);}
+function closeTextBackupModal(){document.getElementById('textBackupModal').classList.remove('open');}
+async function copyTextBackup(){const el=document.getElementById('textBackupContent');el.select();try{await navigator.clipboard.writeText(el.value);notify('✓ Copied to clipboard!');}catch{document.execCommand('copy');notify('Copied — if that didn\'t work, select all and copy manually.');}}
+async function exportJSON(){const payload=buildBackupPayload();const filename=`storecheck-backup-${new Date().toISOString().split('T')[0]}.json`;const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   // Installed PWAs on Android can silently save downloads somewhere the
   // Files app never indexes. The share sheet writes through the OS instead,
   // so it works even when a plain <a download> click doesn't surface a file.
